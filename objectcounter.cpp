@@ -1,15 +1,18 @@
 #include "objectcounter.h"
 
-static int SENSITIVITY_VALUE = 43;
-static int BLUR_SIZE = 54;
+static int SENSITIVITY_VALUE = 150;
+static int BLUR_SIZE = 15;
+static int CLOSE_VALUE = 100;
 
 static bool isFirst = false;
 static int s_slider = SENSITIVITY_VALUE;
 static int b_slider = BLUR_SIZE;
-static int slider_max = 100;
+static int c_slider = CLOSE_VALUE;
+static int slider_max = 200;
 static void on_trackbar(int, void*){
 	SENSITIVITY_VALUE = s_slider;
 	BLUR_SIZE = b_slider;
+	CLOSE_VALUE = c_slider;
 }
 static int minArea = 200;
 
@@ -134,7 +137,7 @@ private:
 					minDisp = dispt;
 				}
 			}
-			if(minDisp > 120){
+			if(minDisp > CLOSE_VALUE){
 				addObject();
 				addObjectPoint(lastkey, mp);
 				oi = lastkey;
@@ -165,7 +168,7 @@ private:
 		QHashIterator<int, QList<Point> > i(objects);
 		while(i.hasNext()){
 			i.next();
-			if(i.value().size() > 45)
+			if(i.value().size() > 10)
 				if(countRect.contains(i.value().first())){
 					int p = isPosition(lineStart, lineEnd, i.value().first());
 					int os = objectsPosState.value(i.key());
@@ -196,9 +199,15 @@ void onmouse(int event, int x, int y, int flags, void* param){
 		rectStart = Point(x, y);
 	}else if (event == CV_EVENT_LBUTTONUP){
 		rectEnd = Point(x, y);
-		int x1 = (rectStart.x + rectEnd.x)*.5;
-		lineStart = Point(x1, rectStart.y);
-		lineEnd = Point(x1, rectEnd.y);
+		if(false){
+			int x1 = (rectStart.x + rectEnd.x)*.5;
+			lineStart = Point(x1, rectStart.y);
+			lineEnd = Point(x1, rectEnd.y);
+		}else{
+			int y1 = (rectStart.y + rectEnd.y)*.5;
+			lineStart = Point(rectStart.x, y1);
+			lineEnd = Point(rectEnd.x, y1);
+		}
 	}
 }
 static QImage Mat2QImage(cv::Mat const& src){
@@ -238,8 +247,8 @@ void ObjectCounter::init(){
 				100.0,	// treshold
 				true);
 
-	isDebugmod = false;
-	isCountmod = true;
+	isDebugmod = true;
+	isCountmod = false;
 }
 
 void ObjectCounter::imgShow(QImage img){
@@ -284,7 +293,8 @@ void ObjectCounter::movemontDetection(const Mat &img){
 
 				// Draw footprint
 				_ofollow.setPoint(mass_centers[i]);
-				_ofollow.drawFootprints(frame1);
+				if(isCountmod)
+					_ofollow.drawFootprints(frame1);
 
 				// Draw target
 				Rect roi = boundingRect(contours[i]);
@@ -315,6 +325,8 @@ void ObjectCounter::movemontDetection(const Mat &img){
 		if(isDebugmod){
 			createTrackbar("SENSITIVITY_VALUE", "Movemont Detection", &s_slider, slider_max, on_trackbar);
 			createTrackbar("BLUR_SIZE", "Movemont Detection", &b_slider, slider_max, on_trackbar);
+			createTrackbar("CLOSE_VALUE", "Movemont Detection", &c_slider, slider_max, on_trackbar);
+
 		}
 		if(isCountmod)
 			setMouseCallback("Movemont Detection", onmouse, &frame1);

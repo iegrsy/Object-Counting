@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
 	QCoreApplication a(argc, argv);
 
 	ObjectCounter oc;
-	VideoCapture capture(0);
+	VideoCapture capture("./video.avi");
 	Mat frame;
 	if( capture.isOpened() ){
 		while( true ){
