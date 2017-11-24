@@ -21,6 +21,13 @@ int main(int argc, char *argv[])
 			int c = waitKey(10);
 			if( (char)c == 'q' ){
 				break;
+			}else if( (char)c == 'p' ){
+				while (true) {
+					int c = waitKey(10);
+					if( (char)c == 'p' ){
+						break;
+					}
+				}
 			}
 		}
 		destroyAllWindows();

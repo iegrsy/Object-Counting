@@ -13,6 +13,7 @@ HEADERS += \
     objectcounter.h
 
 INCLUDEPATH += /usr/local/include/opencv
+INCLUDEPATH += /usr/local/include/opencv2
 
 LIBS += -L/usr/local/lib \
 -lopencv_ml \
@@ -30,4 +31,5 @@ LIBS += -L/usr/local/lib \
 -lopencv_photo\
 -lopencv_imgproc\
 -lopencv_flann\
--lopencv_core
+-lopencv_core\
+-lopencv_nonfree

@@ -107,7 +107,7 @@ private:
 	void addObjectPoint(int key, Point mp){
 		QList<Point> tp = objects.value(key);
 		tp.append(mp);
-		if(tp.size() > 50)
+		if(tp.size() > 100)
 			tp.removeFirst();
 
 		objects.insert(key,tp);
@@ -301,6 +301,9 @@ void ObjectCounter::movemontDetection(const Mat &img){
 				drawContours(frame1, contours, i, Scalar(0, 0, 255));
 				rectangle(frame1, roi, Scalar(0, 0, 255));
 				drawTarget(mass_centers[i],frame1,i);
+
+				if(roi.area() > CLOSE_VALUE*5)
+					imshow("my cut", frame1(roi));
 			}
 		}
 	}else{
