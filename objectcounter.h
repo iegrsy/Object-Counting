@@ -41,7 +41,7 @@ private:
 	Mat grayImage1,grayImage2;
 	Mat differenceImage, thresholdImage;
 	Ptr<BackgroundSubtractor> pKNN;
-	bool isDebugmod, isCountmod;
+	bool isDebugmod, isCountmod, isSettingMod, isDrawMod;
 };
 
 #endif // OBJECTCOUNTER_H

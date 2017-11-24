@@ -17,6 +17,7 @@ static void on_trackbar(int, void*){
 static int minArea = 200;
 
 static Rect countRect;
+static Rect countLine;
 static Point rectStart;
 static Point rectEnd;
 static Point lineStart;
@@ -191,7 +192,7 @@ private:
 
 static _objectFollow _ofollow;
 
-void onmouse(int event, int x, int y, int flags, void* param){
+static void onmouse(int event, int x, int y, int flags, void* param){
 	Q_UNUSED(param)
 	Q_UNUSED(flags)
 
@@ -247,8 +248,10 @@ void ObjectCounter::init(){
 				100.0,	// treshold
 				true);
 
-	isDebugmod = true;
-	isCountmod = true;
+	isDebugmod = false;
+	isCountmod = false;
+	isSettingMod = true;
+	isDrawMod = true;
 }
 
 void ObjectCounter::imgShow(QImage img){
@@ -292,9 +295,10 @@ void ObjectCounter::movemontDetection(const Mat &img){
 				mass_centers[i] = Point(contour_moments[i].m10 / contour_moments[i].m00, contour_moments[i].m01 / contour_moments[i].m00);
 
 				// Draw footprint
-				_ofollow.setPoint(mass_centers[i]);
-				if(isCountmod)
+				if(isCountmod){
+					_ofollow.setPoint(mass_centers[i]);
 					_ofollow.drawFootprints(frame1);
+				}
 
 				// Draw target
 				Rect roi = boundingRect(contours[i]);
@@ -302,8 +306,19 @@ void ObjectCounter::movemontDetection(const Mat &img){
 				rectangle(frame1, roi, Scalar(0, 0, 255));
 				drawTarget(mass_centers[i],frame1,i);
 
-				if(roi.area() > CLOSE_VALUE*100)
-					imshow("my cut", frame1(roi));
+				if(isDrawMod){
+					countRect = Rect(rectStart, rectEnd);
+					rectangle(frame1, countRect, Scalar(76,255,0), 3);
+					countLine = Rect(lineStart, Point(lineEnd.x, lineEnd.y+15));
+					rectangle(frame1, countLine, Scalar(76,10,255), 3);
+					//line(frame1, lineStart, lineEnd, Scalar(76,10,255), 3);
+				}
+
+				if(countRect.contains(mass_centers[i]) && countLine.contains(mass_centers[i])){
+					objectUpCount++;
+					rectangle(frame1, lineStart, Point(lineEnd.x, lineEnd.y+10), Scalar(0,0,0), 5);
+				}
+
 			}
 		}
 	}else{
@@ -316,22 +331,17 @@ void ObjectCounter::movemontDetection(const Mat &img){
 			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
 	putText(frame1, QString("Down count: %1").arg(QString::number(objectDownCount)).toStdString(), Point(20,60),
 			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
-	if(isCountmod){
-		countRect = Rect(rectStart,rectEnd);
-		rectangle(frame1, rectStart, rectEnd, Scalar(76,255,0), 3);
-		line(frame1, lineStart, lineEnd, Scalar(76,10,255), 3);
-	}
 
 	imshow("Movemont Detection", frame1);
 
 	if(!isFirst){
-		if(isDebugmod){
+		if(isSettingMod){
 			createTrackbar("SENSITIVITY_VALUE", "Movemont Detection", &s_slider, slider_max, on_trackbar);
 			createTrackbar("BLUR_SIZE", "Movemont Detection", &b_slider, slider_max, on_trackbar);
 			createTrackbar("CLOSE_VALUE", "Movemont Detection", &c_slider, slider_max, on_trackbar);
 
 		}
-		if(isCountmod)
+		if(isDrawMod)
 			setMouseCallback("Movemont Detection", onmouse, &frame1);
 
 		isFirst = true;
