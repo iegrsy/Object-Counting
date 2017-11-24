@@ -3,16 +3,20 @@
 static int SENSITIVITY_VALUE = 150;
 static int BLUR_SIZE = 15;
 static int CLOSE_VALUE = 100;
+static int MATCH_MOD = 1;
+
 
 static bool isFirst = false;
 static int s_slider = SENSITIVITY_VALUE;
 static int b_slider = BLUR_SIZE;
 static int c_slider = CLOSE_VALUE;
+static int m_slider = MATCH_MOD;
 static int slider_max = 200;
 static void on_trackbar(int, void*){
 	SENSITIVITY_VALUE = s_slider;
 	BLUR_SIZE = b_slider;
 	CLOSE_VALUE = c_slider;
+	MATCH_MOD = m_slider;
 }
 static int minArea = 200;
 
@@ -54,6 +58,49 @@ static int isPosition(Point a, Point b, Point c){
 		return 2;
 }
 
+static void MatchingMethod(Mat &img, Mat &templ,int match_method)
+{
+	QTime mytime;
+	mytime.start();
+	/// Source image to display
+	Mat img_display,result;
+	img.copyTo( img_display );
+
+	/// Create the result matrix
+	int result_cols =  img.cols - templ.cols + 1;
+	int result_rows = img.rows - templ.rows + 1;
+
+	result.create( result_rows, result_cols, CV_32FC1 );
+
+	qDebug()<<QString("debug create: %1").arg(mytime.elapsed());
+	/// Do the Matching and Normalize
+	matchTemplate( img, templ, result, match_method );
+	qDebug()<<QString("debug match: %1").arg(mytime.elapsed());
+	normalize( result, result, 0, 1, NORM_MINMAX, -1, Mat() );
+
+	qDebug()<<QString("debug normalize: %1").arg(mytime.elapsed());
+	/// Localizing the best match with minMaxLoc
+	double minVal; double maxVal; Point minLoc; Point maxLoc;
+	Point matchLoc;
+
+	minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
+	qDebug()<<QString("debug mac min loc: %1").arg(mytime.elapsed());
+	/// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
+	if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
+	{ matchLoc = minLoc; }
+	else
+	{ matchLoc = maxLoc; }
+	qDebug()<<QString("debug loc com: %1").arg(mytime.elapsed());
+	/// Show me what you got
+	rectangle( img_display, matchLoc, Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), Scalar::all(0), 2, 8, 0 );
+	rectangle( result, matchLoc, Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), Scalar::all(0), 2, 8, 0 );
+
+	imshow( "image_window", img_display );
+	imshow( "result_window", result );
+
+	return;
+}
+
 class _objectFollow{
 public:
 	_objectFollow(){
@@ -70,7 +117,7 @@ public:
 			int ck = findCloseObject(mp);
 			if (objects.contains(ck))
 				addObjectPoint(ck, mp);
-			qDebug()<<QString("size: %1 === key: %2").arg(objects.size()).arg(ck);
+			//qDebug()<<QString("size: %1 === key: %2").arg(objects.size()).arg(ck);
 		}
 	}
 
@@ -248,7 +295,7 @@ void ObjectCounter::init(){
 				true);
 
 	isDebugmod = true;
-	isCountmod = true;
+	isCountmod = false;
 }
 
 void ObjectCounter::imgShow(QImage img){
@@ -292,9 +339,9 @@ void ObjectCounter::movemontDetection(const Mat &img){
 				mass_centers[i] = Point(contour_moments[i].m10 / contour_moments[i].m00, contour_moments[i].m01 / contour_moments[i].m00);
 
 				// Draw footprint
-				_ofollow.setPoint(mass_centers[i]);
-				if(isCountmod)
-					_ofollow.drawFootprints(frame1);
+//				_ofollow.setPoint(mass_centers[i]);
+//				if(isCountmod)
+//					_ofollow.drawFootprints(frame1);
 
 				// Draw target
 				Rect roi = boundingRect(contours[i]);
@@ -302,8 +349,10 @@ void ObjectCounter::movemontDetection(const Mat &img){
 				rectangle(frame1, roi, Scalar(0, 0, 255));
 				drawTarget(mass_centers[i],frame1,i);
 
-				if(roi.area() > CLOSE_VALUE*100)
-					imshow("my cut", frame1(roi));
+//				if(roi.area() > CLOSE_VALUE*100)
+//					imshow("my cut", frame1(roi));
+				Mat as = frame1(roi);
+				MatchingMethod(frame1, as, MATCH_MOD);
 			}
 		}
 	}else{
@@ -329,7 +378,7 @@ void ObjectCounter::movemontDetection(const Mat &img){
 			createTrackbar("SENSITIVITY_VALUE", "Movemont Detection", &s_slider, slider_max, on_trackbar);
 			createTrackbar("BLUR_SIZE", "Movemont Detection", &b_slider, slider_max, on_trackbar);
 			createTrackbar("CLOSE_VALUE", "Movemont Detection", &c_slider, slider_max, on_trackbar);
-
+			createTrackbar("MATCH_MOD", "Movemont Detection", &m_slider, 5, on_trackbar);
 		}
 		if(isCountmod)
 			setMouseCallback("Movemont Detection", onmouse, &frame1);
