@@ -248,7 +248,7 @@ void ObjectCounter::init(){
 				true);
 
 	isDebugmod = true;
-	isCountmod = false;
+	isCountmod = true;
 }
 
 void ObjectCounter::imgShow(QImage img){
@@ -302,7 +302,7 @@ void ObjectCounter::movemontDetection(const Mat &img){
 				rectangle(frame1, roi, Scalar(0, 0, 255));
 				drawTarget(mass_centers[i],frame1,i);
 
-				if(roi.area() > CLOSE_VALUE*5)
+				if(roi.area() > CLOSE_VALUE*100)
 					imshow("my cut", frame1(roi));
 			}
 		}
