@@ -1,12 +1,12 @@
-#include <QCoreApplication>
+#include <QApplication>
 #include "objectcounter.h"
 
 int main(int argc, char *argv[])
 {
-	QCoreApplication a(argc, argv);
+	QApplication a(argc, argv);
 
 	ObjectCounter oc;
-	VideoCapture capture("./video.avi");
+	VideoCapture capture("../video.avi");
 	Mat frame;
 	if( capture.isOpened() ){
 		while( true ){

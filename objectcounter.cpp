@@ -70,7 +70,7 @@ public:
 			int ck = findCloseObject(mp);
 			if (objects.contains(ck))
 				addObjectPoint(ck, mp);
-			qDebug()<<QString("size: %1 === key: %2").arg(objects.size()).arg(ck);
+			//qDebug()<<QString("size: %1 === key: %2").arg(objects.size()).arg(ck);
 		}
 	}
 
@@ -247,8 +247,10 @@ void ObjectCounter::init(){
 				100.0,	// treshold
 				true);
 
-	isDebugmod = true;
+	isDebugmod = false;
+	isSettingmod = true;
 	isCountmod = true;
+	isDrawingmod = false;
 }
 
 void ObjectCounter::imgShow(QImage img){
@@ -291,19 +293,17 @@ void ObjectCounter::movemontDetection(const Mat &img){
 				contour_moments[i] = moments(contours[i], false);
 				mass_centers[i] = Point(contour_moments[i].m10 / contour_moments[i].m00, contour_moments[i].m01 / contour_moments[i].m00);
 
-				// Draw footprint
-				_ofollow.setPoint(mass_centers[i]);
-				if(isCountmod)
-					_ofollow.drawFootprints(frame1);
-
+				if(isCountmod){
+					// Draw footprint
+					_ofollow.setPoint(mass_centers[i]);
+					if(isDrawingmod)
+						_ofollow.drawFootprints(frame1);
+				}
 				// Draw target
 				Rect roi = boundingRect(contours[i]);
 				drawContours(frame1, contours, i, Scalar(0, 0, 255));
 				rectangle(frame1, roi, Scalar(0, 0, 255));
 				drawTarget(mass_centers[i],frame1,i);
-
-				if(roi.area() > CLOSE_VALUE*100)
-					imshow("my cut", frame1(roi));
 			}
 		}
 	}else{
@@ -325,11 +325,10 @@ void ObjectCounter::movemontDetection(const Mat &img){
 	imshow("Movemont Detection", frame1);
 
 	if(!isFirst){
-		if(isDebugmod){
+		if(isSettingmod){
 			createTrackbar("SENSITIVITY_VALUE", "Movemont Detection", &s_slider, slider_max, on_trackbar);
 			createTrackbar("BLUR_SIZE", "Movemont Detection", &b_slider, slider_max, on_trackbar);
 			createTrackbar("CLOSE_VALUE", "Movemont Detection", &c_slider, slider_max, on_trackbar);
-
 		}
 		if(isCountmod)
 			setMouseCallback("Movemont Detection", onmouse, &frame1);
