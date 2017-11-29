@@ -6,12 +6,15 @@ int main(int argc, char *argv[])
 	QApplication a(argc, argv);
 
 	ObjectCounter oc;
-	VideoCapture capture("../video.avi");
+#if 1
+	VideoCapture capture("../../video.avi");
+#else
+	VideoCapture capture(0);
+#endif
 	Mat frame;
 	if( capture.isOpened() ){
 		while( true ){
-			capture.read(frame);
-			if( !frame.empty() ){
+			if(capture.read(frame)){
 				oc.movemontDetection(frame);
 			}else{
 				qDebug(" --(!) No captured frame -- Break!");
