@@ -14,6 +14,12 @@ static void on_trackbar(int, void*){
 	BLUR_SIZE = b_slider;
 	CLOSE_VALUE = c_slider;
 }
+static void mypause(){
+	while (true)
+		if( (char)waitKey(10) == 'p' )
+			break;
+}
+
 static int minArea = 200;
 
 static Rect countRect;
@@ -53,6 +59,22 @@ static int isPosition(Point a, Point b, Point c){
 	else
 		return 2;
 }
+class _objectTracking{
+public:
+	//tracking methods: {"BOOSTING", "MIL", "KCF", "TLD","MEDIANFLOW", "GOTURN"};
+	Ptr<Tracker> tracker;
+	_objectTracking(){
+		tracker = TrackerKCF::create();
+	}
+
+	void init(Mat frame,Rect2d box){
+		tracker->init(frame, box);
+	}
+
+	bool update(Mat frame, Rect2d &box){
+		return tracker->update(frame, box);
+	}
+};
 
 class _objectFollow{
 public:
@@ -61,15 +83,15 @@ public:
 		loopCount = 0;
 	}
 
-	void setPoint(Point mp){
+	void setPoint(Point mp, Mat mt){
 		if(objects.isEmpty()){
 			addObject();
-			addObjectPoint(lastkey,mp);
+			addObjectPoint(lastkey, mp, mt);
 		}
 		else{
-			int ck = findCloseObject(mp);
+			int ck = findCloseObject(mp, mt);
 			if (objects.contains(ck))
-				addObjectPoint(ck, mp);
+				addObjectPoint(ck, mp, mt);
 			//qDebug()<<QString("size: %1 === key: %2").arg(objects.size()).arg(ck);
 		}
 	}
@@ -89,10 +111,12 @@ public:
 		}
 	}
 
+
 private:
 	QHash<int, QList<Point> > objects;
 	QHash<int, bool> objectsState;
 	QHash<int, int> objectsPosState;
+	QHash<int, Mat> objectsLastMat;
 
 	int lastkey;
 	int loopCount;
@@ -104,7 +128,7 @@ private:
 		objectsPosState.insert(lastkey, 2);
 	}
 
-	void addObjectPoint(int key, Point mp){
+	void addObjectPoint(int key, Point mp, Mat mt){
 		QList<Point> tp = objects.value(key);
 		tp.append(mp);
 		if(tp.size() > 100)
@@ -112,6 +136,7 @@ private:
 
 		objects.insert(key,tp);
 		objectsState.insert(key, true);
+		objectsLastMat.insert(key, mt);
 
 		clearHistory();
 		lineCount();
@@ -121,7 +146,34 @@ private:
 		return objects.size();
 	}
 
-	int findCloseObject(Point mp){
+	int findCloseObject(Point mp, Mat mt){
+
+		if(getObjectCount() > 0){
+			int lastMax = 0;
+			int oi = 0;
+
+			QHashIterator<int, QList<Point> > i(objects);
+			while(i.hasNext()){
+				i.next();
+				if(!objectsLastMat.contains(i.key()))
+					break;
+
+				int matchCount = compareImage(objectsLastMat.value(i.key()), mt);
+
+				if(matchCount > lastMax){
+					oi = i.key();
+					lastMax = matchCount;
+				}
+			}
+			if(lastMax < CLOSE_VALUE){
+				addObject();
+				addObjectPoint(lastkey, mp, mt);
+				oi = lastkey;
+			}
+			return oi;
+		}
+		return -1;
+#if 0
 		double lastMax = DBL_MAX;
 		if(getObjectCount() > 0){
 			int oi = 0;
@@ -139,13 +191,13 @@ private:
 			}
 			if(minDisp > CLOSE_VALUE){
 				addObject();
-				addObjectPoint(lastkey, mp);
+				addObjectPoint(lastkey, mp, mt);
 				oi = lastkey;
 			}
 			//qDebug()<< "min disp: " << minDisp;
 			return oi;
 		}
-		return -1;
+#endif
 	}
 
 	void clearHistory(){
@@ -187,6 +239,74 @@ private:
 				}
 		}
 	}
+
+	int compareImage(Mat img_1, Mat img_2){
+
+		return 0;
+#if 0
+		cvtColor(img_1, img_1, CV_BGR2GRAY);
+		cvtColor(img_2, img_2, CV_BGR2GRAY);
+		if( !img_1.data || !img_2.data )
+		{ qDebug()<< " --(!) Error reading images "; return -1; }
+
+		//-- Step 1: Detect the keypoints using SURF Detector, compute the descriptors
+		int minHessian = 400;
+		Ptr<SURF> detector = SURF::create();
+		detector->setHessianThreshold(minHessian);
+
+		std::vector<KeyPoint> keypoints_1, keypoints_2;
+
+		Mat descriptors_1, descriptors_2;
+		detector->detectAndCompute( img_1, Mat(), keypoints_1, descriptors_1 );
+		detector->detectAndCompute( img_2, Mat(), keypoints_2, descriptors_2 );
+
+		//-- Step 2: Matching descriptor vectors using FLANN matcher
+
+		FlannBasedMatcher matcher;
+		std::vector< DMatch > matches;
+
+		if(descriptors_1.type()!=CV_32F) {
+			descriptors_1.convertTo(descriptors_1, CV_32F);
+		}
+		if(descriptors_2.type()!=CV_32F) {
+			descriptors_2.convertTo(descriptors_2, CV_32F);
+		}
+
+		matcher.match( descriptors_1, descriptors_2, matches );
+
+		double max_dist = 0; double min_dist = 100;
+
+		//-- Quick calculation of max and min distances between keypoints
+		for( int i = 0; i < descriptors_1.rows; i++ ){
+			double dist = matches[i].distance;
+			if( dist < min_dist ) min_dist = dist;
+			if( dist > max_dist ) max_dist = dist;
+		}
+		printf("-- Max dist : %f \n", max_dist );
+		printf("-- Min dist : %f \n", min_dist );
+		//-- Draw only "good" matches (i.e. whose distance is less than 2*min_dist,
+		//-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
+		//-- small)
+		//-- PS.- radiusMatch can also be used here.
+		std::vector< DMatch > good_matches;
+		for( int i = 0; i < descriptors_1.rows; i++ )
+		{ if( matches[i].distance <= max(2*min_dist, 0.02) )
+			{ good_matches.push_back( matches[i]); }
+		}
+		//-- Draw only "good" matches
+		Mat img_matches;
+		drawMatches( img_1, keypoints_1, img_2, keypoints_2,
+					 good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+					 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+		//-- Show detected matches
+		imshow( "Good Matches", img_matches );
+		for( int i = 0; i < (int)good_matches.size(); i++ )
+		{ printf( "-- Good Match [%d] Keypoint 1: %d  -- Keypoint 2: %d  \n", i, good_matches[i].queryIdx, good_matches[i].trainIdx ); }
+		qDebug()<<good_matches.size();
+		//mypause();
+		return good_matches.size();
+#endif
+	}
 };
 
 static _objectFollow _ofollow;
@@ -197,6 +317,7 @@ void onmouse(int event, int x, int y, int flags, void* param){
 
 	if(event == CV_EVENT_LBUTTONDOWN){
 		rectStart = Point(x, y);
+		rectEnd = rectStart;
 	}else if (event == CV_EVENT_LBUTTONUP){
 		rectEnd = Point(x, y);
 		if(false){
@@ -250,7 +371,7 @@ void ObjectCounter::init(){
 	isDebugmod = false;
 	isSettingmod = true;
 	isCountmod = true;
-	isDrawingmod = false;
+	isDrawingmod = true;
 }
 
 void ObjectCounter::imgShow(QImage img){
@@ -293,17 +414,20 @@ void ObjectCounter::movemontDetection(const Mat &img){
 				contour_moments[i] = moments(contours[i], false);
 				mass_centers[i] = Point(contour_moments[i].m10 / contour_moments[i].m00, contour_moments[i].m01 / contour_moments[i].m00);
 
-				if(isCountmod){
-					// Draw footprint
-					_ofollow.setPoint(mass_centers[i]);
-					if(isDrawingmod)
-						_ofollow.drawFootprints(frame1);
-				}
 				// Draw target
 				Rect roi = boundingRect(contours[i]);
 				drawContours(frame1, contours, i, Scalar(0, 0, 255));
 				rectangle(frame1, roi, Scalar(0, 0, 255));
 				drawTarget(mass_centers[i],frame1,i);
+
+				if(countRect.contains(mass_centers[i])){
+					if(isCountmod){
+						// Draw footprint
+						_ofollow.setPoint(mass_centers[i], frame1(roi));
+						if(isDrawingmod)
+							_ofollow.drawFootprints(frame1);
+					}
+				}
 			}
 		}
 	}else{
