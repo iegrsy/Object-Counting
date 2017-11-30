@@ -46,7 +46,7 @@ public:
 	void movemontDetection(const Mat &img);
 	void init();
 private:
-	Mat frame1, knn;
+	Mat frameOriginal,frame1, knn;
 	Mat grayImage1,grayImage2;
 	Mat differenceImage, thresholdImage;
 	Ptr<BackgroundSubtractor> pKNN;

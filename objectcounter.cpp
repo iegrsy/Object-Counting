@@ -2,7 +2,7 @@
 
 static int SENSITIVITY_VALUE = 150;
 static int BLUR_SIZE = 15;
-static int CLOSE_VALUE = 100;
+static int CLOSE_VALUE = 2500;
 
 static bool isFirst = false;
 static int s_slider = SENSITIVITY_VALUE;
@@ -15,6 +15,7 @@ static void on_trackbar(int, void*){
 	CLOSE_VALUE = c_slider;
 }
 static void mypause(){
+	Q_UNUSED(mypause)
 	while (true)
 		if( (char)waitKey(10) == 'p' )
 			break;
@@ -35,6 +36,8 @@ static QList<Scalar> clr;
 // Finds the intersection of two lines, or returns false.
 // The lines are defined by (o1, p1) and (o2, p2).
 static bool intersection(Point2f o1, Point2f p1, Point2f o2, Point2f p2, Point2f &r){
+	Q_UNUSED(intersection)
+
 	Point2f x = o2 - o1;
 	Point2f d1 = p1 - o1;
 	Point2f d2 = p2 - o2;
@@ -97,8 +100,11 @@ public:
 	}
 
 	void clearObjects(){
+		qDebug()<<"Clearing objects.";
 		objects.clear();
 		objectsState.clear();
+		objectsPosState.clear();
+		objectsLastMat.clear();
 		lastkey = 0;
 	}
 
@@ -136,10 +142,12 @@ private:
 
 		objects.insert(key,tp);
 		objectsState.insert(key, true);
-		objectsLastMat.insert(key, mt);
+		Mat m;
+		mt.copyTo(m);
+		objectsLastMat.insert(key, m);
 
-		clearHistory();
 		lineCount();
+		clearHistory();
 	}
 
 	int getObjectCount(){
@@ -147,7 +155,34 @@ private:
 	}
 
 	int findCloseObject(Point mp, Mat mt){
+#if 1
+		double lastMax = DBL_MAX;
+		if(getObjectCount() > 0){
+			int oi = 0;
+			double minDisp;
+			QHashIterator<int, QList<Point> > i(objects);
+			while(i.hasNext()){
+				i.next();
 
+				int dispt = compareImage(objectsLastMat.value(i.key()), mt);
+
+				if(dispt < lastMax){
+					oi = i.key();
+					minDisp = dispt;
+				}
+			}
+
+			if(minDisp > CLOSE_VALUE){
+				addObject();
+				addObjectPoint(lastkey, mp, mt);
+				oi = lastkey;
+				qDebug()<<"add object: "<< minDisp << "oi: " << oi;
+			}
+			qDebug()<< "min disp: " << minDisp;
+			return oi;
+		}
+		return -1;
+#elif 0
 		if(getObjectCount() > 0){
 			int lastMax = 0;
 			int oi = 0;
@@ -173,7 +208,7 @@ private:
 			return oi;
 		}
 		return -1;
-#if 0
+#elif 0
 		double lastMax = DBL_MAX;
 		if(getObjectCount() > 0){
 			int oi = 0;
@@ -220,11 +255,11 @@ private:
 		QHashIterator<int, QList<Point> > i(objects);
 		while(i.hasNext()){
 			i.next();
-			if(i.value().size() > 10)
+			if(i.value().size() > 2)
 				if(countRect.contains(i.value().first())){
-					int p = isPosition(lineStart, lineEnd, i.value().first());
+					int p = isPosition(lineStart, lineEnd, i.value().last());
 					int os = objectsPosState.value(i.key());
-					qDebug()<<QString("p: %1 s: %2").arg(p).arg(os);
+					//qDebug()<<QString("p: %1 s: %2").arg(p).arg(os);
 					if(os == 2)
 						objectsPosState.insert(i.key(), p);
 					else if (os == 1 && p == -1){
@@ -242,7 +277,57 @@ private:
 
 	int compareImage(Mat img_1, Mat img_2){
 
-		return 0;
+		Mat src_base, hsv_base;
+		Mat src_test1, hsv_test1;
+
+		src_base = img_1;
+		src_test1 = img_2;
+
+		/// Convert to HSV
+		cvtColor( src_base, hsv_base, COLOR_BGR2HSV );
+		cvtColor( src_test1, hsv_test1, COLOR_BGR2HSV );
+
+		/// Using 50 bins for hue and 60 for saturation
+		int h_bins = 50; int s_bins = 60;
+		int histSize[] = { h_bins, s_bins };
+
+		// hue varies from 0 to 179, saturation from 0 to 255
+		float h_ranges[] = { 0, 180 };
+		float s_ranges[] = { 0, 256 };
+
+		const float* ranges[] = { h_ranges, s_ranges };
+
+		// Use the o-th and 1-st channels
+		int channels[] = { 0, 1 };
+
+
+		/// Histograms
+		MatND hist_base;
+		MatND hist_test1;
+
+		/// Calculate the histograms for the HSV images
+		calcHist( &hsv_base, 1, channels, Mat(), hist_base, 2, histSize, ranges, true, false );
+		normalize( hist_base, hist_base, 0, 1, NORM_MINMAX, -1, Mat() );
+
+		calcHist( &hsv_test1, 1, channels, Mat(), hist_test1, 2, histSize, ranges, true, false );
+		normalize( hist_test1, hist_test1, 0, 1, NORM_MINMAX, -1, Mat() );
+
+		double srate = 0;
+		/// Apply the histogram comparison methods
+		for( int i = 0; i < 4; i++ ){
+			int compare_method = i;
+			double base_base = compareHist( hist_base, hist_base, compare_method );
+			double base_test1 = compareHist( hist_base, hist_test1, compare_method );
+
+			srate += 100*abs(base_base-base_test1);
+			//qDebug( " Method [%d] Perfect, Base-Half, Base-Test(1), Base-Test(2) : %f, %f", i, base_base, base_test1 );
+		}
+		//qDebug()<<"Done"<<(int) floor(srate);
+
+		//imshow("debug1", img_1);
+		//imshow("debug2", img_2);
+		//mypause();
+		return (int) floor(srate);
 #if 0
 		cvtColor(img_1, img_1, CV_BGR2GRAY);
 		cvtColor(img_2, img_2, CV_BGR2GRAY);
@@ -381,7 +466,8 @@ void ObjectCounter::imgShow(QImage img){
 }
 
 void ObjectCounter::movemontDetection(const Mat &img){
-	frame1 = img;
+	frameOriginal = img;
+	frameOriginal.copyTo(frame1);
 	//resize(frame1,frame1,Size(),0.5,0.5);
 	pKNN->apply(frame1,knn);
 
@@ -408,28 +494,33 @@ void ObjectCounter::movemontDetection(const Mat &img){
 		vector<Moments> contour_moments(cSize);
 		vector<Point> mass_centers(cSize);
 
+		bool in = false;
 		for (int i = 0; i < cSize; ++i)	{
 			double area = contourArea(contours[i]);
 			if (area > minArea){
 				contour_moments[i] = moments(contours[i], false);
 				mass_centers[i] = Point(contour_moments[i].m10 / contour_moments[i].m00, contour_moments[i].m01 / contour_moments[i].m00);
 
+				if(countRect.contains(mass_centers[i])){
 				// Draw target
 				Rect roi = boundingRect(contours[i]);
 				drawContours(frame1, contours, i, Scalar(0, 0, 255));
 				rectangle(frame1, roi, Scalar(0, 0, 255));
 				drawTarget(mass_centers[i],frame1,i);
 
-				if(countRect.contains(mass_centers[i])){
 					if(isCountmod){
 						// Draw footprint
-						_ofollow.setPoint(mass_centers[i], frame1(roi));
+						Mat car = frameOriginal(roi);
+						_ofollow.setPoint(mass_centers[i], car);
 						if(isDrawingmod)
 							_ofollow.drawFootprints(frame1);
 					}
+					in = true;
 				}
 			}
 		}
+		if(!in)
+			_ofollow.clearObjects();
 	}else{
 		_ofollow.clearObjects();
 	}
@@ -452,7 +543,7 @@ void ObjectCounter::movemontDetection(const Mat &img){
 		if(isSettingmod){
 			createTrackbar("SENSITIVITY_VALUE", "Movemont Detection", &s_slider, slider_max, on_trackbar);
 			createTrackbar("BLUR_SIZE", "Movemont Detection", &b_slider, slider_max, on_trackbar);
-			createTrackbar("CLOSE_VALUE", "Movemont Detection", &c_slider, slider_max, on_trackbar);
+			createTrackbar("CLOSE_VALUE", "Movemont Detection", &c_slider, 50000, on_trackbar);
 		}
 		if(isCountmod)
 			setMouseCallback("Movemont Detection", onmouse, &frame1);
