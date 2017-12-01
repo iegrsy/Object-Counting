@@ -254,7 +254,7 @@ private:
 		QHashIterator<int, QList<Point> > i(objects);
 		while(i.hasNext()){
 			i.next();
-			if(i.value().size() > 2)
+			if(i.value().size() > 1)
 				if(countRect.contains(i.value().first())){
 					int p = isPosition(lineStart, lineEnd, i.value().last());
 					int os = objectsPosState.value(i.key());
@@ -494,13 +494,13 @@ void ObjectCounter::movemontDetection(const Mat &img){
 				contour_moments[i] = moments(contours[i], false);
 				mass_centers[i] = Point(contour_moments[i].m10 / contour_moments[i].m00, contour_moments[i].m01 / contour_moments[i].m00);
 
-				if(countRect.contains(mass_centers[i])){
 				// Draw target
 				Rect roi = boundingRect(contours[i]);
 				//drawContours(frame1, contours, i, Scalar(0, 0, 255));
 				rectangle(frame1, roi, Scalar(0, 0, 255));
 				drawTarget(mass_centers[i],frame1,i);
 
+				if(countRect.contains(mass_centers[i])){
 					if(isCountmod){
 						// Draw footprint
 						Mat car = frameOriginal(roi);
