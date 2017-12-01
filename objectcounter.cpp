@@ -3,16 +3,20 @@
 static int SENSITIVITY_VALUE = 150;
 static int BLUR_SIZE = 15;
 static int CLOSE_VALUE = 2500;
+static int MIN_AREA = 1000;
 
 static bool isFirst = false;
 static int s_slider = SENSITIVITY_VALUE;
 static int b_slider = BLUR_SIZE;
 static int c_slider = CLOSE_VALUE;
+static int m_slider = MIN_AREA;
+
 static int slider_max = 200;
 static void on_trackbar(int, void*){
 	SENSITIVITY_VALUE = s_slider;
 	BLUR_SIZE = b_slider;
 	CLOSE_VALUE = c_slider;
+	MIN_AREA = m_slider;
 }
 static void mypause(){
 	Q_UNUSED(mypause)
@@ -20,8 +24,6 @@ static void mypause(){
 		if( (char)waitKey(10) == 'p' )
 			break;
 }
-
-static int minArea = 200;
 
 static Rect countRect;
 static Point rectStart;
@@ -31,10 +33,7 @@ static Point lineEnd;
 
 static int objectUpCount;
 static int objectDownCount;
-static QList<Scalar> clr;
 
-// Finds the intersection of two lines, or returns false.
-// The lines are defined by (o1, p1) and (o2, p2).
 static bool intersection(Point2f o1, Point2f p1, Point2f o2, Point2f p2, Point2f &r){
 	Q_UNUSED(intersection)
 
@@ -100,7 +99,7 @@ public:
 	}
 
 	void clearObjects(){
-		qDebug()<<"Clearing objects.";
+		//qDebug()<<"Clearing objects.";
 		objects.clear();
 		objectsState.clear();
 		objectsPosState.clear();
@@ -176,9 +175,9 @@ private:
 				addObject();
 				addObjectPoint(lastkey, mp, mt);
 				oi = lastkey;
-				qDebug()<<"add object: "<< minDisp << "oi: " << oi;
+				//qDebug()<<"add object: "<< minDisp << "oi: " << oi;
 			}
-			qDebug()<< "min disp: " << minDisp;
+			//qDebug()<< "min disp: " << minDisp;
 			return oi;
 		}
 		return -1;
@@ -474,12 +473,6 @@ void ObjectCounter::movemontDetection(const Mat &img){
 	if(isDebugmod)
 		imshow("Movemont Detection: KNN", knn);
 
-	if(!isFirst){
-		minArea = (int) ((frame1.rows * frame1.cols)/2000);
-		for(int i = 0; i < 100; i++)
-			clr.append(Scalar(rand()%255, rand()%255, rand()%255));
-	}
-
 	blur(knn, knn, Size(BLUR_SIZE, BLUR_SIZE));
 	threshold(knn, knn, SENSITIVITY_VALUE, 255, THRESH_BINARY);
 	knn.convertTo(knn, CV_8U);
@@ -497,14 +490,14 @@ void ObjectCounter::movemontDetection(const Mat &img){
 		bool in = false;
 		for (int i = 0; i < cSize; ++i)	{
 			double area = contourArea(contours[i]);
-			if (area > minArea){
+			if (area > MIN_AREA){
 				contour_moments[i] = moments(contours[i], false);
 				mass_centers[i] = Point(contour_moments[i].m10 / contour_moments[i].m00, contour_moments[i].m01 / contour_moments[i].m00);
 
 				if(countRect.contains(mass_centers[i])){
 				// Draw target
 				Rect roi = boundingRect(contours[i]);
-				drawContours(frame1, contours, i, Scalar(0, 0, 255));
+				//drawContours(frame1, contours, i, Scalar(0, 0, 255));
 				rectangle(frame1, roi, Scalar(0, 0, 255));
 				drawTarget(mass_centers[i],frame1,i);
 
@@ -544,6 +537,7 @@ void ObjectCounter::movemontDetection(const Mat &img){
 			createTrackbar("SENSITIVITY_VALUE", "Movemont Detection", &s_slider, slider_max, on_trackbar);
 			createTrackbar("BLUR_SIZE", "Movemont Detection", &b_slider, slider_max, on_trackbar);
 			createTrackbar("CLOSE_VALUE", "Movemont Detection", &c_slider, 50000, on_trackbar);
+			createTrackbar("MIN_AREA", "Movemont Detection", &m_slider, (int) (frame1.rows * frame1.cols), on_trackbar);
 		}
 		if(isCountmod)
 			setMouseCallback("Movemont Detection", onmouse, &frame1);
