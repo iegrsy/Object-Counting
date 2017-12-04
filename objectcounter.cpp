@@ -154,7 +154,6 @@ private:
 	}
 
 	int findCloseObject(Point mp, Mat mt){
-#if 1
 		//matching images
 		if(getObjectCount() > 0){
 			int oi = -1;
@@ -181,59 +180,6 @@ private:
 			return oi;
 		}
 		return -1;
-#elif 0
-		//max calculate
-		if(getObjectCount() > 0){
-			int lastMax = 0;
-			int oi = 0;
-
-			QHashIterator<int, QList<Point> > i(objects);
-			while(i.hasNext()){
-				i.next();
-				if(!objectsLastMat.contains(i.key()))
-					break;
-
-				int matchCount = compareImage(objectsLastMat.value(i.key()), mt);
-
-				if(matchCount > lastMax){
-					oi = i.key();
-					lastMax = matchCount;
-				}
-			}
-			if(lastMax < CLOSE_VALUE){
-				addObject();
-				addObjectPoint(lastkey, mp, mt);
-				oi = lastkey;
-			}
-			return oi;
-		}
-		return -1;
-#elif 0
-		//point compare and min calculate
-		double lastMax = DBL_MAX;
-		if(getObjectCount() > 0){
-			int oi = 0;
-			double minDisp;
-			QHashIterator<int, QList<Point> > i(objects);
-			while(i.hasNext()){
-				i.next();
-				Point p2(i.value().last().x, i.value().last().y);
-				double dispt = norm(Mat(mp), Mat(p2));
-
-				if(dispt < lastMax){
-					oi = i.key();
-					minDisp = dispt;
-				}
-			}
-			if(minDisp > CLOSE_VALUE){
-				addObject();
-				addObjectPoint(lastkey, mp, mt);
-				oi = lastkey;
-			}
-			//qDebug()<< "min disp: " << minDisp;
-			return oi;
-		}
-#endif
 	}
 
 	void clearHistory(){
@@ -310,6 +256,7 @@ private:
 			return 1;
 		else
 			return -1;
+//useful codes
 #if 0
 		int minHessian = 600;
 
