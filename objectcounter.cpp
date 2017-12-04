@@ -2,7 +2,7 @@
 
 static int SENSITIVITY_VALUE = 150;
 static int BLUR_SIZE = 15;
-static int CLOSE_VALUE = 2500;
+static int CLOSE_VALUE = 80;
 static int MIN_AREA = 1000;
 
 static bool isFirst = false;
@@ -155,33 +155,34 @@ private:
 
 	int findCloseObject(Point mp, Mat mt){
 #if 1
-		double lastMax = DBL_MAX;
+		//matching images
 		if(getObjectCount() > 0){
-			int oi = 0;
-			double minDisp;
+			int oi = -1;
+			int tmp;
 			QHashIterator<int, QList<Point> > i(objects);
 			while(i.hasNext()){
 				i.next();
 
 				int dispt = compareImage(objectsLastMat.value(i.key()), mt);
+				tmp = dispt;
 
-				if(dispt < lastMax){
+				if(tmp == 1){
 					oi = i.key();
-					minDisp = dispt;
+					break;
 				}
 			}
 
-			if(minDisp > CLOSE_VALUE){
+			if(tmp == -1){
 				addObject();
 				addObjectPoint(lastkey, mp, mt);
 				oi = lastkey;
-				//qDebug()<<"add object: "<< minDisp << "oi: " << oi;
 			}
-			//qDebug()<< "min disp: " << minDisp;
+
 			return oi;
 		}
 		return -1;
 #elif 0
+		//max calculate
 		if(getObjectCount() > 0){
 			int lastMax = 0;
 			int oi = 0;
@@ -208,6 +209,7 @@ private:
 		}
 		return -1;
 #elif 0
+		//point compare and min calculate
 		double lastMax = DBL_MAX;
 		if(getObjectCount() > 0){
 			int oi = 0;
@@ -263,11 +265,11 @@ private:
 						objectsPosState.insert(i.key(), p);
 					else if (os == 1 && p == -1){
 						//up count
-						objectUpCount++;
+						objectDownCount++;
 						objectsPosState.insert(i.key(), p);
 					}else if (os == -1 && p == 1){
 						//down count
-						objectDownCount++;
+						objectUpCount++;
 						objectsPosState.insert(i.key(), p);
 					}
 				}
@@ -276,6 +278,101 @@ private:
 
 	int compareImage(Mat img_1, Mat img_2){
 
+		Ptr<SiftFeatureDetector> siftDetector = SiftFeatureDetector::create();
+
+		vector<KeyPoint> siftKeypoints, siftKeypoints1;
+		Mat descriptors_1, descriptors_2;
+
+		siftDetector->detectAndCompute(img_1, Mat(), siftKeypoints, descriptors_1);
+		siftDetector->detectAndCompute(img_2, Mat(), siftKeypoints1, descriptors_2);
+
+		if(descriptors_1.size().height < 1 || descriptors_1.size().width < 1 ||
+				descriptors_2.size().height < 1 || descriptors_2.size().width < 1 )
+			return -1;
+
+		FlannBasedMatcher matcher;
+		vector< DMatch > matches;
+		matcher.match( descriptors_1, descriptors_2, matches );
+		double max_dist = 0; double min_dist = CLOSE_VALUE;
+		for( int i = 0; i < descriptors_1.rows; i++ )
+		{ double dist = matches[i].distance;
+			if( dist < min_dist ) min_dist = dist;
+			if( dist > max_dist ) max_dist = dist;
+		}
+
+		vector< DMatch > good_matches;
+		for( int i = 0; i < descriptors_1.rows; i++ )
+		{ if( matches[i].distance <= max(2*min_dist, 0.02) )
+			{ good_matches.push_back( matches[i]); }
+		}
+
+		if(good_matches.size()>3)
+			return 1;
+		else
+			return -1;
+#if 0
+		int minHessian = 600;
+
+		Ptr<SURF> detector = SURF::create(minHessian);
+
+		vector<KeyPoint> keypoints,keypoints1;
+		Mat descriptors_1, descriptors_2;
+
+		detector->detectAndCompute(img_1, Mat(), keypoints, descriptors_1);
+		detector->detectAndCompute(img_2, Mat(), keypoints1, descriptors_2);
+
+		if(descriptors_1.size().height < 1 || descriptors_1.size().width < 1 ||
+				descriptors_2.size().height < 1 || descriptors_2.size().width < 1 )
+			return -1;
+
+		qDebug()<<"***************** 1";
+
+		FlannBasedMatcher matcher;
+		std::vector< DMatch > matches;
+
+		imshow("debug1", descriptors_1);
+		imshow("debug 2", descriptors_2);
+		qDebug()<<"***************** 5";
+
+		matcher.match( descriptors_1, descriptors_2, matches );
+		double max_dist = 0; double min_dist = 100;
+
+		qDebug()<<"***************** 6";
+		for( int i = 0; i < descriptors_1.rows; i++ )
+		{ double dist = matches[i].distance;
+			if( dist < min_dist ) min_dist = dist;
+			if( dist > max_dist ) max_dist = dist;
+		}
+		qDebug()<<"***************** 2";
+
+		std::vector< DMatch > good_matches;
+		for( int i = 0; i < descriptors_1.rows; i++ )
+		{ if( matches[i].distance <= max(2*min_dist, 0.02) )
+			{ good_matches.push_back( matches[i]); }
+		}
+		qDebug()<<"***************** 3";
+
+		Mat img_matches;
+		drawMatches( img_1, keypoints, img_2, keypoints1,
+					 good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+					 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+		qDebug()<<"***************** 4"<< good_matches.size();
+
+		imshow( "Good Matches", img_matches );
+		//waitKey(0);
+
+		//		//-- Draw keypoints
+		//		Mat img_keypoints_1; Mat img_keypoints_2;
+		//		drawKeypoints( img_1, keypoints, img_keypoints_1, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+		//		drawKeypoints( img_2, keypoints1, img_keypoints_2, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+
+		//		//-- Show detected (drawn) keypoints
+		//		imshow("Keypoints 1", img_keypoints_1 );
+		//		imshow("Keypoints 2", img_keypoints_2 );
+
+		return good_matches.size();
+#elif 0
+		//histogram compare
 		Mat src_base, hsv_base;
 		Mat src_test1, hsv_test1;
 
@@ -327,7 +424,8 @@ private:
 		//imshow("debug2", img_2);
 		//mypause();
 		return (int) floor(srate);
-#if 0
+#elif 0
+		//surf compare
 		cvtColor(img_1, img_1, CV_BGR2GRAY);
 		cvtColor(img_2, img_2, CV_BGR2GRAY);
 		if( !img_1.data || !img_2.data )
@@ -536,7 +634,7 @@ void ObjectCounter::movemontDetection(const Mat &img){
 		if(isSettingmod){
 			createTrackbar("SENSITIVITY_VALUE", "Movemont Detection", &s_slider, slider_max, on_trackbar);
 			createTrackbar("BLUR_SIZE", "Movemont Detection", &b_slider, slider_max, on_trackbar);
-			createTrackbar("CLOSE_VALUE", "Movemont Detection", &c_slider, 50000, on_trackbar);
+			createTrackbar("CLOSE_VALUE", "Movemont Detection", &c_slider, 150, on_trackbar);
 			createTrackbar("MIN_AREA", "Movemont Detection", &m_slider, (int) (frame1.rows * frame1.cols), on_trackbar);
 		}
 		if(isCountmod)

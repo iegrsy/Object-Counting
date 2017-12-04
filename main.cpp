@@ -70,12 +70,19 @@ int main(int argc, char *argv[])
 	QApplication a(argc, argv);
 
 	ObjectCounter oc;
-#if 0
+	bool isballtest = false;
+#if 1
 	VideoCapture capture("../../video.avi");
+	/* test video
+	 * ../../pirates-flashmob.h264
+	 */
+	//VideoCapture capture("../../pirates-flashmob.h264");
 #else
 	VideoCapture capture(0);
+	isballtest = true;
 #endif
 	Mat frame;
+
 	BouncingBalls bb;
 	BouncingBalls bb1;
 	BouncingBalls bb2;
@@ -83,10 +90,7 @@ int main(int argc, char *argv[])
 	if( capture.isOpened() ){
 		while( true ){
 			if(capture.read(frame)){
-
-				bb.updateBall(frame);
-				//bb1.updateBall(frame);
-				//bb2.updateBall(frame);
+				if(isballtest){bb.updateBall(frame); bb1.updateBall(frame); bb2.updateBall(frame);}
 
 				oc.movemontDetection(frame);
 			}else{
