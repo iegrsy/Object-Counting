@@ -1,9 +1,9 @@
 #include "objectcounter.h"
 
-static int SENSITIVITY_VALUE = 150;
-static int BLUR_SIZE = 15;
+static int SENSITIVITY_VALUE = 50;
+static int BLUR_SIZE = 7;
 static int CLOSE_VALUE = 80;
-static int MIN_AREA = 1000;
+static int MIN_AREA = 100;
 
 static bool isFirst = false;
 static int s_slider = SENSITIVITY_VALUE;
@@ -229,7 +229,7 @@ private:
 
 static _objectFollow _ofollow;
 
-void onmouse(int event, int x, int y, int flags, void* param){
+static void onmouse(int event, int x, int y, int flags, void* param){
 	Q_UNUSED(param)
 	Q_UNUSED(flags)
 
@@ -259,7 +259,7 @@ static QImage Mat2QImage(cv::Mat const& src){
 	return dest;
 }
 
-static cv::Mat QImage2Mat(QImage const& src){
+cv::Mat ObjectCounter::QImage2Mat(QImage const& src){
 	cv::Mat tmp(src.height(),src.width(),CV_8UC3,(uchar*)src.bits(),src.bytesPerLine());
 	cv::Mat result; // deep copy just in case (my lack of knowledge with open cv)
 	cvtColor(tmp, result,CV_BGR2RGB);
@@ -281,12 +281,9 @@ ObjectCounter::ObjectCounter(){
 }
 
 void ObjectCounter::init(){
-	pKNN = createBackgroundSubtractorKNN(
-				300,	// history
-				100.0,	// treshold
-				true);
+	pKNN = createBackgroundSubtractorMOG2(300, 16, true);
 
-	isDebugmod = false;
+	isDebugmod = true;
 	isSettingmod = true;
 	isCountmod = true;
 	isDrawingmod = true;
@@ -323,7 +320,13 @@ void ObjectCounter::movemontDetection(const Mat &img){
 	if(isDebugmod)
 		imshow("Movemont Detection: KNN", knn);
 
-	blur(knn, knn, Size(BLUR_SIZE, BLUR_SIZE));
+	//	fastNlMeansDenoising(knn, knn);
+
+	if(BLUR_SIZE>0){
+		blur(knn, knn, Size(BLUR_SIZE, BLUR_SIZE));
+		blur(knn, knn, Size(BLUR_SIZE*4, BLUR_SIZE*4));
+	}
+
 	threshold(knn, knn, SENSITIVITY_VALUE, 255, THRESH_BINARY);
 	knn.convertTo(knn, CV_8U);
 	if(isDebugmod)

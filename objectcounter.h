@@ -44,8 +44,9 @@ public:
 
 	void imgShow(QImage img);
 	void movemontDetection(const Mat &img);
-	void init();
+	cv::Mat QImage2Mat(const QImage &src);
 private:
+	void init();
 	Mat frameOriginal,frame1, knn;
 	Mat grayImage1,grayImage2;
 	Mat differenceImage, thresholdImage;
