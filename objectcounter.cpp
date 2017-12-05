@@ -125,7 +125,7 @@ private:
 		//matching images
 		if(getObjectCount() > 0){
 			int oi = -1;
-			int tmp;
+			int tmp = 0;
 			QHashIterator<int, QList<Point> > i(objects);
 			while(i.hasNext()){
 				i.next();
