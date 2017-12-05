@@ -88,10 +88,10 @@ int main(int argc, char *argv[])
 	BouncingBalls bb2;
 
 	if( capture.isOpened() ){
+		qDebug()<< QString("Video FPS: %1").arg(capture.get(CAP_PROP_FPS));
 		while( true ){
 			if(capture.read(frame)){
 				if(isballtest){bb.updateBall(frame); bb1.updateBall(frame); bb2.updateBall(frame);}
-
 				oc.movemontDetection(frame);
 			}else{
 				qDebug(" --(!) No captured frame -- Break!");

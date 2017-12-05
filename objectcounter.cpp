@@ -298,7 +298,23 @@ void ObjectCounter::imgShow(QImage img){
 	imshow("Frame", frame1);
 }
 
+static long frameCounter = 0;
+static time_t timeBegin = time(0);
+static int tick = 0;
+static int pfps = 0;
+
 void ObjectCounter::movemontDetection(const Mat &img){
+	//FPS calculate
+	frameCounter++;
+	time_t timeNow = time(0) - timeBegin;
+	if (timeNow - tick >= 1)
+	{
+		tick++;
+		//qDebug() << QString("Frames per second: %1").arg(frameCounter);
+		pfps = (int) frameCounter;
+		frameCounter = 0;
+	}
+
 	frameOriginal = img;
 	frameOriginal.copyTo(frame1);
 	//resize(frame1,frame1,Size(),0.5,0.5);
@@ -357,6 +373,8 @@ void ObjectCounter::movemontDetection(const Mat &img){
 	putText(frame1, QString("Up count: %1").arg(QString::number(objectUpCount)).toStdString(), Point(20,30),
 			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
 	putText(frame1, QString("Down count: %1").arg(QString::number(objectDownCount)).toStdString(), Point(20,60),
+			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+	putText(frame1, QString("FPS: %1").arg(pfps).toStdString(), cvPoint(30, frame1.rows - 30),
 			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
 	if(isCountmod){
 		countRect = Rect(rectStart,rectEnd);
